@@ -10,16 +10,16 @@ jobs:
     name: run Tests
     runs-on: ubuntu-latest
     steps:
-      -uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-      -name: Set Up Python
-       uses: actions/setup-python@v4
-       with:
-         python-version: '3.11'
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
-      -name: Install Dependencies
-       run: pip install -r app/requirements.txt
+      - name: Install Dependencies
+        run: pip install -r app/requirements.txt
 
-      -name: Run Pytest
-       run: pytest app/tests/
+      - name: Run Pytest
+        run: pytest app/tests/
 
