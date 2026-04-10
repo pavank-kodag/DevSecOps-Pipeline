@@ -21,5 +21,96 @@ jobs:
         run: pip install -r app/requirements.txt
 
       - name: Run Pytest
-        run: pytest app/tests/
+        run: python -m pytest app/tests/
 
+  sast:
+    name: SAST (Bandit + CodeQL)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bandit SAST Scan
+        run: |
+          pip install bandit
+          bandit -r app/ -f json -o bandit-report.json || true
+          bandit -r app/ --severity-level high
+
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: CodeQL Anlayis
+        uses: github/codeql-action/analyze@v3
+        
+  sca-secret:
+    name: SCA + Secerets Scan
+    runs-on: ubuntu-latest
+    needs: sast
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Dependency Scan
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --file=app/requirements.txt --severity-threshold=high
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  container-scan:
+    name: Container Scan
+    runs-on: ubuntu-latest
+    needs: sca-secret
+    env:
+      IMAGE_NAME: devsecops-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Image for Scan
+        run: docker build -t ${{ env.IMAGE_NAME }}:scan .
+        
+      - name: Trivy Container Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_NAME }}:scan'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
+        
+
+      - name: Trivy Full Report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_NAME }}:scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: trivy-vulnerabilty-scan
+          path: trivy-results.sarif
+
+  build-deploy:
+    name: Build and Deploy
+    needs: container-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Image
+        run: docker 
