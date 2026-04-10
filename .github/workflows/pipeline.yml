@@ -37,7 +37,7 @@ jobs:
           bandit -r app/ --severity-level high
 
       - name: Upload Bandit Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: bandit-security-report
@@ -99,18 +99,32 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-vulnerabilty-scan
           path: trivy-results.sarif
 
   build-deploy:
-    name: Build and Deploy
+    name: Build and Push
     needs: container-scan
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: devsecops-app
+      REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Image
-        run: docker 
+      - name: Login to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username:           feat(ci): add DevSecOps pipeline (tests, bandit+codeql, snyk+gitleaks, trivy, acr push)
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and Push
+        run:
+          docker build -t $REGISTRY_NAME/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker push $REGISTRY_NAME/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker tag $REGISTRY_NAME/${{ env.IMAGE_NAME }}:${{ github.sha }} $REGISTRY_NAME/${{ env.IMAGE_NAME }}:latest
+          docker push $REGISTRY_NAME/${{ env.IMAGE_NAME }}:latest
