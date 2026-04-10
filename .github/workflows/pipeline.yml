@@ -5,9 +5,14 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   test:
-    name: run Tests
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +32,10 @@ jobs:
     name: SAST (Bandit + CodeQL)
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +61,7 @@ jobs:
         uses: github/codeql-action/analyze@v3
         
   sca-secret:
-    name: SCA + Secerets Scan
+    name: SCA (Snyk) + Secerets Scan
     runs-on: ubuntu-latest
     needs: sast
     steps:
@@ -71,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   container-scan:
-    name: Container Scan
+    name: Container Scan (Trivy)
     runs-on: ubuntu-latest
     needs: sca-secret
     env:
@@ -111,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: devsecops-app
-      REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+      REGISTRY_NAME: ${{ secrets.ACR_LOGIN_SERVER }}
     steps:
       - uses: actions/checkout@v4
 
@@ -123,7 +132,7 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and Push
-        run:
+        run: |
           docker build -t $REGISTRY_NAME/${{ env.IMAGE_NAME }}:${{ github.sha }} .
           docker push $REGISTRY_NAME/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker tag $REGISTRY_NAME/${{ env.IMAGE_NAME }}:${{ github.sha }} $REGISTRY_NAME/${{ env.IMAGE_NAME }}:latest
