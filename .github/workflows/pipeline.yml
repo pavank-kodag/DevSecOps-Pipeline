@@ -119,7 +119,7 @@ jobs:
         uses: azure/docker-login@v1
         with:
           login-server: ${{ secrets.ACR_LOGIN_SERVER }}
-          username:           feat(ci): add DevSecOps pipeline (tests, bandit+codeql, snyk+gitleaks, trivy, acr push)
+          username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and Push
