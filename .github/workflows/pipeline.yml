@@ -73,14 +73,20 @@ jobs:
           python-version: '3.11'
 
       - name: Install Dependencies
-        run: pip install -r app/requirements.txt
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r app/requirements.txt
 
-      - name: Run Dependency Scan
-        uses: snyk/actions/python@master
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --file=app/requirements.txt --severity-threshold=high
+
+      - name: Run Dependency Scan (Snyk)
+        working-directory: app
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high
 
       - name: Gitleaks Secret Scan
         uses: gitleaks/gitleaks-action@v2
